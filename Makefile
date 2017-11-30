@@ -10,7 +10,7 @@ CC = g++
 TARGET   = wde1d
 CLTARGET = dbchart
 
-LIBS = -lmysqlclient_r -lrt
+LIBS = $(shell mysql_config --libs_r) -lrt
 DEFINES += -D_GNU_SOURCE
 CFLAGS   = -ggdb -Wreturn-type -Wformat -pedantic -Wunused-variable -Wunused-label \
            -Wunused-value -Wunused-function \
@@ -20,7 +20,7 @@ VERSION = $(shell grep 'define VERSION ' $(TARGET).h | awk '{ print $$3 }' | sed
 TMPDIR = /tmp
 ARCHIVE = $(TARGET)-$(VERSION)
 
-# object files 
+# object files
 
 LOBJS  =  lib/db.o lib/tabledef.o lib/common.o
 OBJS   = $(LOBJS) main.o update.o csv.o serial.o
@@ -68,4 +68,3 @@ csv.o  			 :  csv.c         $(HEADER)
 serial.o        :  serial.c      $(HEADER)
 update.o        :  update.c      $(HEADER)
 chart.o         :  chart.c
-
