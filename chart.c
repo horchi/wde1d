@@ -22,6 +22,7 @@ const char* dbhost = "localhost";
 const char* dbname = "";
 const char* dbuser = "";
 const char* dbpass = "";
+int oldStyle = no;
 int dbport = 3306;
 
 //***************************************************************************
@@ -100,7 +101,8 @@ void showUsage(const char* name)
           "    -u <user>      - database user\n"
           "    -p <pass>      - database password\n"
           "    -l <logvel>    - log level {0-4}\n"
-          "    -i <interval>  - inverval für charts [h] (default 10)\n",
+          "    -i <interval>  - inverval für charts [h] (default 10)\n"
+          "    -O             - output in old 'var' style\n",
           name);
 }
 
@@ -407,6 +409,73 @@ int chart(const char* sensorList, const char* file, int interval)
    return 0;
 }
 
+int printActualOldStyle(FILE* fp, cDbStatement* s, long lastTime)
+{
+   char line[500];
+   
+   sprintf(line, "// %s\n", l2pTime(lastTime).c_str());
+   fputs(line, fp);
+   
+   sprintf(line, "var varTime = %ld;\n", lastTime);
+   fputs(line, fp);
+   
+   for (int f = s->find(); f; f = s->fetch())
+   {
+      char* name = strdup(sfDb->getRow()->getValue(cTableValueFacts::fiName)->getStrValue());
+      
+      if (isEmpty(name))
+         continue;
+      
+      name[0] = toupper(name[0]);
+      
+      fprintf(fp, "// --------------------------------------------\n");
+      
+      double v =  sDb->getRow()->getValue(cTableSamples::fiValue)->getFloatValue();
+      
+      if (v != int(v))
+         fprintf(fp, "var var%sValue = %2.1f;\n", name, v);
+      else
+         fprintf(fp, "var var%sValue = %d;\n", name, (int)v);
+      
+      fprintf(fp, "var var%sTitle = %s;\n", name,
+              sfDb->getRow()->getValue(cTableValueFacts::fiTitle)->getStrValue());
+      
+      fprintf(fp, "var var%sUnit = %s;\n", name,
+              sfDb->getRow()->getValue(cTableValueFacts::fiUnit)->getStrValue());
+      
+      fprintf(fp, "var var%sText = %s;\n", name,
+              sDb->getRow()->getValue(cTableSamples::fiText)->getStrValue());
+      
+      free(name);
+   }
+   
+   return done;
+}
+
+int printActualNewStyle(FILE* fp, cDbStatement* s, long lastTime)
+{
+   char line[500];
+   
+   sprintf(line, "Time = %s\n", l2pTime(lastTime).c_str());
+   fputs(line, fp);
+
+   for (int f = s->find(); f; f = s->fetch())
+   {              
+      double v =  sDb->getRow()->getValue(cTableSamples::fiValue)->getFloatValue();
+      const char* unit = sfDb->getRow()->getValue(cTableValueFacts::fiUnit)->getStrValue();
+      const char* title = sfDb->getRow()->getValue(cTableValueFacts::fiTitle)->getStrValue();
+
+      if (strcmp(unit, "T") == 0)
+         fprintf(fp, "%s = %s\n", title, l2pTime(v).c_str());
+      else if (v != int(v))
+         fprintf(fp, "%s = %2.1f%s\n", title, v, unit);
+      else
+         fprintf(fp, "%s = %d%s\n", title, (int)v, unit);
+   }
+
+   return done;
+}
+
 //***************************************************************************
 // Actual
 //***************************************************************************
@@ -414,7 +483,6 @@ int chart(const char* sensorList, const char* file, int interval)
 int actual(const char* file)
 {
    FILE* fp;
-   char line[500];
    long lastTime;
 
    // select max(time) from samples;
@@ -468,41 +536,10 @@ int actual(const char* file)
 
    if (fp)
    {
-      sprintf(line, "// %s\n", l2pTime(lastTime).c_str());
-      fputs(line, fp);
-
-      sprintf(line, "var varTime = %ld;\n", lastTime);
-      fputs(line, fp);
-
-      for (int f = s->find(); f; f = s->fetch())
-      {
-         char* name = strdup(sfDb->getRow()->getValue(cTableValueFacts::fiName)->getStrValue());
-         
-         if (isEmpty(name))
-            continue;
-
-         name[0] = toupper(name[0]);
-
-         fprintf(fp, "// --------------------------------------------\n");
-
-         double v =  sDb->getRow()->getValue(cTableSamples::fiValue)->getFloatValue();
-
-         if (v != int(v))
-            fprintf(fp, "var var%sValue = %2.1f;\n", name, v);
-         else
-            fprintf(fp, "var var%sValue = %d;\n", name, (int)v);
-         
-         fprintf(fp, "var var%sTitle = %s;\n", name,
-                 sfDb->getRow()->getValue(cTableValueFacts::fiTitle)->getStrValue());
-                 
-         fprintf(fp, "var var%sUnit = %s;\n", name,
-                 sfDb->getRow()->getValue(cTableValueFacts::fiUnit)->getStrValue());
-
-         fprintf(fp, "var var%sText = %s;\n", name,
-                 sDb->getRow()->getValue(cTableSamples::fiText)->getStrValue());
-      
-         free(name);
-      }
+      if (oldStyle)
+         printActualOldStyle(fp, s, lastTime);
+      else
+         printActualNewStyle(fp, s, lastTime);
    }
    else 
       tell(0, "Error: can't open file '%s' for writing", file, strerror(errno));
@@ -562,6 +599,7 @@ int main(int argc, char** argv)
          case 'p': if (argv[i+1]) dbpass = argv[++i];         break;
          case 's': if (argv[i+1]) sensors = argv[++i];        break;
          case 'f': if (argv[i+1]) file = argv[++i];           break;
+         case 'O': oldStyle = yes;                            break;
       }
    }
   
