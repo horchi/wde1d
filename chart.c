@@ -22,6 +22,7 @@ const char* dbhost = "localhost";
 const char* dbname = "";
 const char* dbuser = "";
 const char* dbpass = "";
+const char* filter = "";
 int oldStyle = no;
 int dbport = 3306;
 
@@ -49,26 +50,26 @@ int initDb()
    connection = new cDbConnection();
 
    sDb = new cTableSamples(connection);
-   
+
    if (sDb->open() != success)
    {
-      tell(0, "Could not access database '%s:%d' (%s)", 
+      tell(0, "Could not access database '%s:%d' (%s)",
            cDbConnection::getHost(), cDbConnection::getPort(), sDb->TableName());
 
       return fail;
    }
 
    sfDb = new cTableValueFacts(connection);
-   
+
    if (sfDb->open() != success)
    {
-      tell(0, "Could not access database '%s:%d' (%s)", 
+      tell(0, "Could not access database '%s:%d' (%s)",
            cDbConnection::getHost(), cDbConnection::getPort(), sfDb->TableName());
 
       return fail;
    }
 
-   tell(0, "Connection to database established");  
+   tell(0, "Connection to database established");
 
    return success;
 }
@@ -77,7 +78,7 @@ int exitDb()
 {
    sDb->close();
    sfDb->close();
-   
+
    delete sDb;        sDb = 0;
    delete sfDb;       sfDb = 0;
    delete connection; connection = 0;
@@ -101,7 +102,9 @@ void showUsage(const char* name)
           "    -u <user>      - database user\n"
           "    -p <pass>      - database password\n"
           "    -l <logvel>    - log level {0-4}\n"
+          "    -t             - log and write to terminal (stdout)\n"
           "    -i <interval>  - inverval für charts [h] (default 10)\n"
+          "    -F <filter>    - get only parameter which match name eg. 'Time, Kesseltemperatur, Abgastemperatur'\n"
           "    -O             - output in old 'var' style\n",
           name);
 }
@@ -178,12 +181,12 @@ const char* toMglCode(const char* from)
          p += strlen("ß");
       }
 
-      else 
+      else
          str += *p++;
    }
 
    strcpy(mglcd, str.c_str());
-   tell(2, "Converted '%s' to '%s'", from, mglcd);   
+   tell(2, "Converted '%s' to '%s'", from, mglcd);
 
    return mglcd;
 }
@@ -200,22 +203,22 @@ int chart(const char* sensorList, const char* file, int interval)
    const char* colors = "krGbcymhwRgBCYMHW";
 
    int multiAxis = no;
-   mglGraph* gr = new mglGraph(0, 1360, 768); // 1024, 300); 
+   mglGraph* gr = new mglGraph(0, 1360, 768); // 1024, 300);
    long st, et;
 
    // ---------------------------
    // fill mglData
 
-   // select s.time, s.value, f.unit, f.title 
-   //   from samples s, valuefacts f 
+   // select s.time, s.value, f.unit, f.title
+   //   from samples s, valuefacts f
    //     where s.address = f.address
-   //     and s.type = f.type 
-   //     and s.time > DATE_SUB(NOW(),INTERVAL 24 HOUR) 
+   //     and s.type = f.type
+   //     and s.time > DATE_SUB(NOW(),INTERVAL 24 HOUR)
    //     and f.name = ?
    //   order by time;
 
    cDbStatement* stmt = new cDbStatement(sDb);
-   
+
    stmt->build("select ");
    stmt->setBindPrefix("s.");
    stmt->bind(cTableSamples::fiTime, cDBS::bndOut);
@@ -226,7 +229,7 @@ int chart(const char* sensorList, const char* file, int interval)
    stmt->build(" from %s s, %s f where ", sDb->TableName(), sfDb->TableName());
    stmt->build("s.address = f.address ");
    stmt->build("and s.type = f.type ");
-   stmt->build("and s.%s > DATE_SUB(NOW(),INTERVAL %d HOUR)", 
+   stmt->build("and s.%s > DATE_SUB(NOW(),INTERVAL %d HOUR)",
             sDb->getField(cTableSamples::fiTime)->name, interval);
    stmt->bind(sfDb->getValue(cTableValueFacts::fiName), cDBS::bndIn | cDBS::bndSet, " and ");
    stmt->build(" order by %s;", sDb->getField(cTableSamples::fiTime)->name);
@@ -262,7 +265,7 @@ int chart(const char* sensorList, const char* file, int interval)
 
       b = e+1;
    }
-   
+
    s.color = "";
 
    if (char* c = strchr(b, ':'))
@@ -280,7 +283,7 @@ int chart(const char* sensorList, const char* file, int interval)
    for (it = sensors.begin(); it != sensors.end(); it++)
    {
       int i = 0;
-      
+
       sDb->clear();
       sfDb->clear();
       sfDb->setValue(cTableValueFacts::fiName, (*it).name.c_str());
@@ -299,15 +302,15 @@ int chart(const char* sensorList, const char* file, int interval)
 
             if (lastUnit.length() && lastUnit != (*it).unit)
                multiAxis = yes;
-            
+
             lastUnit = (*it).unit;
 
             st = sDb->getRow()->getValue(cTableSamples::fiTime)->getTimeValue();
          }
-         
+
          (*it).xdat.a[i] = sDb->getRow()->getValue(cTableSamples::fiTime)->getTimeValue();
          (*it).ydat.a[i] = sDb->getFloatValue(cTableSamples::fiValue);
-         
+
          et = sDb->getRow()->getValue(cTableSamples::fiTime)->getTimeValue();
 
          i++;
@@ -372,7 +375,7 @@ int chart(const char* sensorList, const char* file, int interval)
       double xRange = (*it).xdat.Maximal() - (*it).xdat.Minimal();
       double scaleOff = xRange / 29;
 
-      char c[100];  
+      char c[100];
 
       strcpy(c , (*it).color.c_str());
 
@@ -412,65 +415,111 @@ int chart(const char* sensorList, const char* file, int interval)
 int printActualOldStyle(FILE* fp, cDbStatement* s, long lastTime)
 {
    char line[500];
-   
+
    sprintf(line, "// %s\n", l2pTime(lastTime).c_str());
    fputs(line, fp);
-   
+
    sprintf(line, "var varTime = %ld;\n", lastTime);
    fputs(line, fp);
-   
+
    for (int f = s->find(); f; f = s->fetch())
    {
       char* name = strdup(sfDb->getRow()->getValue(cTableValueFacts::fiName)->getStrValue());
-      
+
       if (isEmpty(name))
          continue;
-      
+
       name[0] = toupper(name[0]);
-      
+
       fprintf(fp, "// --------------------------------------------\n");
-      
+
       double v =  sDb->getRow()->getValue(cTableSamples::fiValue)->getFloatValue();
-      
+
       if (v != int(v))
          fprintf(fp, "var var%sValue = %2.1f;\n", name, v);
       else
          fprintf(fp, "var var%sValue = %d;\n", name, (int)v);
-      
+
       fprintf(fp, "var var%sTitle = %s;\n", name,
               sfDb->getRow()->getValue(cTableValueFacts::fiTitle)->getStrValue());
-      
+
       fprintf(fp, "var var%sUnit = %s;\n", name,
               sfDb->getRow()->getValue(cTableValueFacts::fiUnit)->getStrValue());
-      
+
       fprintf(fp, "var var%sText = %s;\n", name,
               sDb->getRow()->getValue(cTableSamples::fiText)->getStrValue());
-      
+
       free(name);
    }
-   
+
    return done;
 }
 
 int printActualNewStyle(FILE* fp, cDbStatement* s, long lastTime)
 {
    char line[500];
-   
-   sprintf(line, "Time = %s\n", l2pTime(lastTime).c_str());
+
+   sprintf(line, "Uhrzeit = %s\n", l2pTime(lastTime, "%H:%M").c_str());
    fputs(line, fp);
 
    for (int f = s->find(); f; f = s->fetch())
-   {              
+   {
+      const char* p;
       double v =  sDb->getRow()->getValue(cTableSamples::fiValue)->getFloatValue();
       const char* unit = sfDb->getRow()->getValue(cTableValueFacts::fiUnit)->getStrValue();
       const char* title = sfDb->getRow()->getValue(cTableValueFacts::fiTitle)->getStrValue();
+      const char* utitle = sfDb->getRow()->getValue(cTableValueFacts::fiUsrTitle)->getStrValue();
+      const char* text = sDb->getRow()->getValue(cTableSamples::fiText)->getStrValue();
 
-      if (strcmp(unit, "T") == 0)
-         fprintf(fp, "%s = %s\n", title, l2pTime(v).c_str());
+      tell(4, "check '%s' (%s)", utitle, title);
+
+      if (!isEmpty(utitle))
+          title = utitle;
+
+      if (!isEmpty(filter) && !(p = strcasestr(filter, title)))
+         continue;
+
+      if (p && *(p-1) && *(p-1) == '*')
+         fprintf(fp, "*");
+
+      if (!isEmpty(text))
+         fprintf(fp, "%s = %s", title, text);
+      else if (strcmp(unit, "T") == 0)
+         fprintf(fp, "%s = %s", title, l2pTime(v, "%d. %H:%M").c_str());
       else if (v != int(v))
-         fprintf(fp, "%s = %2.1f%s\n", title, v, unit);
+         fprintf(fp, "%s = %2.1f%s", title, v, unit);
       else
-         fprintf(fp, "%s = %d%s\n", title, (int)v, unit);
+         fprintf(fp, "%s = %d%s", title, (int)v, unit);
+
+      // #TODO to be configurable !!
+
+      if (sfDb->getRow()->getValue(cTableValueFacts::fiTitle)->hasValue("Heizungsstatus"))
+      {
+         const char* color = 0;
+
+         if (sDb->getRow()->getValue(cTableSamples::fiText)->hasValue("Betriebsbereit"))
+            color = "green";
+
+         else if (sDb->getRow()->getValue(cTableSamples::fiText)->hasValue("Heizen"))
+            color = "#f00";
+
+         else if (sDb->getRow()->getValue(cTableSamples::fiText)->hasValue("Anheizen") ||
+                  sDb->getRow()->getValue(cTableSamples::fiText)->hasValue("Vorwärmen") ||
+                  sDb->getRow()->getValue(cTableSamples::fiText)->hasValue("Zünden") ||
+                  sDb->getRow()->getValue(cTableSamples::fiText)->hasValue("Vorbereitung"))
+            color = "#ffb725";
+
+         else if (sDb->getRow()->getValue(cTableSamples::fiText)->hasValue("STÖRUNG"))
+            color = "yellow";
+
+         else
+            color = "blue";
+
+         if (!isEmpty(color))
+            fprintf(fp, " color %s", color);
+      }
+
+      fprintf(fp, "\n");
    }
 
    return done;
@@ -488,7 +537,7 @@ int actual(const char* file)
    // select max(time) from samples;
 
    cDbStatement* selMaxTime = new cDbStatement(sDb);
-   
+
    selMaxTime->build("select max(");
    selMaxTime->bind(cTableSamples::fiTime, cDBS::bndOut);
    selMaxTime->build(") from %s;", sDb->TableName());
@@ -503,11 +552,11 @@ int actual(const char* file)
 
    selMaxTime->freeResult();
 
-   delete selMaxTime; 
+   delete selMaxTime;
    selMaxTime = 0;
 
    // select s.value, f.name, f.title, f.unit
-   //   from samples s, valuefacts f 
+   //   from samples s, valuefacts f
    //     where s.address = f.address and s.type = f.type and s.time = ?;
 
    cDbStatement* s = new cDbStatement(sDb);
@@ -519,6 +568,7 @@ int actual(const char* file)
    s->setBindPrefix("f.");
    s->bind(sfDb->getValue(cTableValueFacts::fiName), cDBS::bndOut, ", ");
    s->bind(sfDb->getValue(cTableValueFacts::fiTitle), cDBS::bndOut, ", ");
+   s->bind(sfDb->getValue(cTableValueFacts::fiUsrTitle), cDBS::bndOut, ", ");
    s->bind(sfDb->getValue(cTableValueFacts::fiUnit), cDBS::bndOut, ", ");
    s->build(" from %s s, %s f where ", sDb->TableName(), sfDb->TableName());
    s->build("s.address = f.address ");
@@ -532,22 +582,26 @@ int actual(const char* file)
    sfDb->clear();
    sDb->setValue(cTableSamples::fiTime, lastTime);  //-60*60);
 
-   fp = fopen(file, "w");
+   if (!logstdout)
+      fp = fopen(file, "w");
+   else
+      fp = stdout;
 
-   if (fp)
+   if (fp || logstdout)
    {
       if (oldStyle)
          printActualOldStyle(fp, s, lastTime);
       else
          printActualNewStyle(fp, s, lastTime);
    }
-   else 
+   else
       tell(0, "Error: can't open file '%s' for writing", file, strerror(errno));
-   
+
    s->freeResult();
    delete s;
-   
-   fclose(fp);
+
+   if (fp && !logstdout)
+      fclose(fp);
 
    return 0;
 }
@@ -563,12 +617,11 @@ int main(int argc, char** argv)
    const char* sensors = 0;
    const char* file = 0;
    int interval = 10;
-   
-   loglevel = 0;
-   logstdout = yes;
 
-   if (argc == 1 || (argc > 1 && (argv[1][0] == '?' || 
-        (strcmp(argv[1], "-h") == 0) || 
+   loglevel = 0;
+
+   if (argc == 1 || (argc > 1 && (argv[1][0] == '?' ||
+                                  (strcmp(argv[1], "-h") == 0) ||
                                   (strcmp(argv[1], "--help") == 0))))
    {
       showUsage(argv[0]);
@@ -599,10 +652,13 @@ int main(int argc, char** argv)
          case 'p': if (argv[i+1]) dbpass = argv[++i];         break;
          case 's': if (argv[i+1]) sensors = argv[++i];        break;
          case 'f': if (argv[i+1]) file = argv[++i];           break;
+         case 't': logstdout = yes;                           break;
+         case 'F': if (argv[i+1]) filter = argv[++i];         break;
+
          case 'O': oldStyle = yes;                            break;
       }
    }
-  
+
    if (!doActual && !doChart)
    {
       showUsage(argv[0]);

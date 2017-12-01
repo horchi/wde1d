@@ -65,7 +65,8 @@ class cTableValueFacts : public cDbTable
          fiFactor,
          fiName,
          fiTitle,
-
+         fiUsrTitle,
+         
          fiRes1,       // unknown data
 
          fiCount

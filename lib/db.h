@@ -77,7 +77,7 @@ class cDbService
 
       enum ProcType
       {
-         ptProcedure, 
+         ptProcedure,
          ptFunction
       };
 
@@ -162,7 +162,7 @@ class cDbValue : public cDbService
       }
 
       virtual void setField(FieldDef* f)
-      { 
+      {
          free();
          field = f;
 
@@ -170,11 +170,13 @@ class cDbValue : public cDbService
             strValue = (char*)calloc(field->size+TB, sizeof(char));
       }
 
-      virtual FieldDef* getField()    { return field; }
-      virtual const char* getName()   { return field->name; }
+      virtual FieldDef* getField()           { return field; }
+      virtual const char* getName()          { return field->name; }
+      virtual int hasName(const char* aName) { return strcmp(field->name, aName) == 0; }
+
 
       void setValue(const char* value, int size = 0)
-      { 
+      {
          clear();
 
          if (field->format != ffAscii && field->format != ffText && field->format != ffMlob)
@@ -208,7 +210,7 @@ class cDbValue : public cDbService
          else if (value)
          {
             if (strlen(value) > (size_t)field->size)
-               tell(0, "Warning, size of %d for '%s' exeeded [%s]", 
+               tell(0, "Warning, size of %d for '%s' exeeded [%s]",
                     field->size, field->name, value);
 
             sprintf(strValue, "%.*s", field->size, value);
@@ -222,12 +224,12 @@ class cDbValue : public cDbService
          char tmp[2];
          tmp[0] = value;
          tmp[1] = 0;
-         
+
          setValue(tmp);
       }
 
 //       void setValue(long value)
-//       { 
+//       {
 //          if (field->format != ffInt && field->format != ffUInt)
 //          {
 //             tell(0, "Setting invalid field format for '%s', expected INT", field->name);
@@ -239,7 +241,7 @@ class cDbValue : public cDbService
 //       }
 
       void setValue(double value)
-      { 
+      {
          if (field->format == ffInt || field->format == ffUInt)
          {
             numValue = value;
@@ -257,11 +259,11 @@ class cDbValue : public cDbService
 
             memset(&tm, 0, sizeof(tm));
             localtime_r(&v, &tm);
-            
+
             timeValue.year = tm.tm_year + 1900;
             timeValue.month = tm.tm_mon + 1;
             timeValue.day = tm.tm_mday;
-            
+
             timeValue.hour = tm.tm_hour;
             timeValue.minute = tm.tm_min;
             timeValue.second = tm.tm_sec;
@@ -313,7 +315,7 @@ class cDbValue : public cDbService
 //       }
 
       int hasValue(const char* value)
-      { 
+      {
          if (!value)
             value = "";
 
@@ -332,8 +334,8 @@ class cDbValue : public cDbService
 //         time_t t;
 
 //          gmtime(&t);
-//          localtime_r(&t, &tm); 
-         
+//          localtime_r(&t, &tm);
+
          memset(&tm, 0, sizeof(tm));
          tm.tm_isdst = -1;
          tm.tm_year = timeValue.year - 1900;
@@ -343,7 +345,7 @@ class cDbValue : public cDbService
          tm.tm_hour = timeValue.hour;
          tm.tm_min = timeValue.minute;
          tm.tm_sec = timeValue.second;
-         
+
          return mktime(&tm);
       }
 
@@ -385,7 +387,7 @@ class cDbStatement : public cDbService
       cDbStatement(cDbConnection* aConnection, const char* stmt = "");
 
       virtual ~cDbStatement()  { clear(); }
-      
+
       int execute(int noResult = no);
       int find();
       int fetch();
@@ -402,7 +404,7 @@ class cDbStatement : public cDbService
 
       int bindCmp(const char* table, cDbValue* value,
                   const char* comp, const char* delim = 0);
-      int bindCmp(const char* table, int field, cDbValue* value, 
+      int bindCmp(const char* table, int field, cDbValue* value,
                   const char* comp, const char* delim = 0);
 
       // ..
@@ -439,8 +441,8 @@ class cDbRow : public cDbService
    public:
 
       cDbRow(FieldDef* f)
-      { 
-         count = 0; 
+      {
+         count = 0;
          fieldDef = 0;
          useFields(f);
 
@@ -461,7 +463,7 @@ class cDbRow : public cDbService
       virtual FieldDef* getField(int f)            { return f < 0 ? 0 : fieldDef+f; }
       virtual int fieldCount()                     { return count; }
 
-      void setValue(int f, const char* value, 
+      void setValue(int f, const char* value,
                     int size = 0)                  { dbValues[f].setValue(value, size); }
       void setValue(int f, double value)           { dbValues[f].setValue(value); }
       void setCharValue(int f, char value)         { dbValues[f].setCharValue(value); }
@@ -476,7 +478,7 @@ class cDbRow : public cDbService
 
    protected:
 
-      virtual void useFields(FieldDef* f)  { fieldDef = f; for (count = 0; (fieldDef+count)->name; count++); } 
+      virtual void useFields(FieldDef* f)  { fieldDef = f; for (count = 0; (fieldDef+count)->name; count++); }
 
       int count;           // field count
       FieldDef* fieldDef;
@@ -501,7 +503,7 @@ class cDbConnection
 
       virtual ~cDbConnection()
       {
-         if (mysql) 
+         if (mysql)
          {
             mysql_close(mysql);
             mysql_thread_end();
@@ -509,7 +511,7 @@ class cDbConnection
       }
 
       int attachConnection()
-      { 
+      {
          static int first = yes;
 
          if (!mysql)
@@ -519,8 +521,8 @@ class cDbConnection
             if (!(mysql = mysql_init(0)))
                return errorSql(this, "attachConnection(init)");
 
-            if (!mysql_real_connect(mysql, dbHost, 
-                                    dbUser, dbPass, dbName, dbPort, 0, 0)) 
+            if (!mysql_real_connect(mysql, dbHost,
+                                    dbUser, dbPass, dbName, dbPort, 0, 0))
             {
                mysql_close(mysql);
                mysql = 0;
@@ -532,8 +534,8 @@ class cDbConnection
 
             connectDropped = no;
 
-            // init encoding 
-            
+            // init encoding
+
             if (encoding && *encoding)
             {
                if (mysql_set_character_set(mysql, encoding))
@@ -547,13 +549,13 @@ class cDbConnection
             }
          }
 
-         attached++; 
+         attached++;
 
-         return success; 
+         return success;
       }
 
       void detachConnection()
-      { 
+      {
          attached--;
 
          if (!attached)
@@ -585,11 +587,11 @@ class cDbConnection
          if (h && format)
          {
             char* stmt;
-            
+
             va_list more;
             va_start(more, format);
             vasprintf(&stmt, format, more);
-            
+
             if ((status = mysql_query(h, stmt)))
                errorSql(this, stmt);
 
@@ -618,15 +620,15 @@ class cDbConnection
 
          if (!getMySql())
             return fail;
-         
+
          if (!(f = fopen(file, "r")))
          {
             tell(0, "Fatal: Can't access '%s'; %m", file);
             return fail;
          }
-         
+
          buffer = (char*)malloc(size+1);
-   
+
          while ((res = fread(buffer+nread, 1, 1000, f)))
          {
             char* b;
@@ -636,17 +638,17 @@ class cDbConnection
 
             if (!(b = (char*)realloc(buffer, size+1)))
                free(buffer);
-                
+
             buffer = b;
          }
-         
+
          fclose(f);
          buffer[nread] = 0;
-         
+
          // execute statement
-         
+
          tell(2, "Executing '%s'", buffer);
-         
+
          if (query("%s", buffer))
          {
             free(buffer);
@@ -658,22 +660,22 @@ class cDbConnection
          return success;
       }
 
-      virtual int startTransaction() 
-      { 
+      virtual int startTransaction()
+      {
          inTact = yes;
-         return query("START TRANSACTION"); 
+         return query("START TRANSACTION");
       }
 
       virtual int commit()
-      { 
+      {
          inTact = no;
          return query("COMMIT");
       }
 
-      virtual int rollback() 
-      { 
+      virtual int rollback()
+      {
          inTact = no;
-         return query("ROLLBACK"); 
+         return query("ROLLBACK");
       }
 
       virtual int inTransaction() { return inTact; }
@@ -688,13 +690,13 @@ class cDbConnection
             attached = 0;
          }
 
-         return mysql; 
+         return mysql;
       }
 
       int getAttachedCount()                         { return attached; }
 
       // --------------
-      // static stuff 
+      // static stuff
 
       // set/get connecting data
 
@@ -715,7 +717,7 @@ class cDbConnection
 
       static int init()
       {
-         if (mysql_library_init(0, 0, 0)) 
+         if (mysql_library_init(0, 0, 0))
          {
             tell(0, "Error: mysql_library_init failed");
             return fail;  // return errorSql(0, "init(library_init)");
@@ -868,7 +870,7 @@ class cDbView : public cDbService
             MYSQL_RES* result = mysql_list_tables(connection->getMySql(), name);
             MYSQL_ROW tabRow = mysql_fetch_row(result);
             mysql_free_result(result);
-         
+
             return tabRow ? yes : no;
          }
 
@@ -879,16 +881,16 @@ class cDbView : public cDbService
       {
          int status;
          char* file = 0;
-         
+
          asprintf(&file, "%s/%s", path, sqlFile);
-         
-         tell(0, "Creating view '%s' using definition in '%s'", 
+
+         tell(0, "Creating view '%s' using definition in '%s'",
               name, file);
-         
+
          status = connection->executeSqlFile(file);
-         
+
          free(file);
-         
+
          return status;
       }
 
@@ -949,10 +951,10 @@ class cDbProcedure : public cDbService
             return fail;
 
          cDbStatement stmt(connection);
-         
-         stmt.build("show %s status where name = '%s'", 
+
+         stmt.build("show %s status where name = '%s'",
                     type == ptProcedure ? "procedure" : "function", name);
-         
+
          if (stmt.prepare() != success || stmt.execute() != success)
          {
             tell(0, "%s check of '%s' failed",
@@ -960,7 +962,7 @@ class cDbProcedure : public cDbService
             return no;
          }
          else
-         {  
+         {
             if (stmt.getResultCount() != 1)
                return no;
          }
@@ -975,7 +977,7 @@ class cDbProcedure : public cDbService
 
          asprintf(&file, "%s/%s.sql", path, name);
 
-         tell(1, "Creating %s '%s'", 
+         tell(1, "Creating %s '%s'",
               type == ptProcedure ? "procedure" : "function", name);
 
          status = connection->executeSqlFile(file);
@@ -987,10 +989,10 @@ class cDbProcedure : public cDbService
 
       int drop()
       {
-         tell(1, "Drop %s '%s'", 
+         tell(1, "Drop %s '%s'",
               type == ptProcedure ? "procedure" : "function", name);
 
-         return connection->query("drop %s %s", 
+         return connection->query("drop %s %s",
                                   type == ptProcedure ? "procedure" : "function", name);
       }
 
@@ -999,7 +1001,7 @@ class cDbProcedure : public cDbService
       cDbConnection* connection;
       ProcType type;
       char* name;
-      
+
 };
 
 //***************************************************************************

@@ -91,7 +91,7 @@ char* lTrim(char* buf);
 char* allTrim(char* buf);
 char* sstrcpy(char* dest, const char* src, int max);
 string num2Str(int num);
-string l2pTime(time_t t);
+string l2pTime(time_t t, const char* fmt = "%d.%m.%Y %T");
 
 int fileExists(const char* path);
 int createLink(const char* link, const char* dest, int force);

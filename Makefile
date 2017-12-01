@@ -7,8 +7,9 @@
 
 CC = g++
 
-TARGET   = wde1d
-CLTARGET = dbchart
+TARGET    = wde1d
+CMDTARGET = dbchart
+BINDEST   = "/usr/local/bin"
 
 LIBS = $(shell mysql_config --libs_r) -lrt
 DEFINES += -D_GNU_SOURCE
@@ -31,9 +32,9 @@ CLOBJS = $(LOBJS) chart.o
 %.o: %.c
 	$(CC) $(CFLAGS) -c $(DEFINES) -o $@ $<
 
-all: $(TARGET) $(CLTARGET)
+all: $(TARGET) $(CMDTARGET)
 
-$(CLTARGET): $(CLOBJS)
+$(CMDTARGET): $(CLOBJS)
 	$(CC) $(CFLAGS) $(CLOBJS) $(LIBS) -lmgl -o $@
 
 $(TARGET) : $(OBJS)
@@ -41,7 +42,10 @@ $(TARGET) : $(OBJS)
 
 clean:
 	@-rm -f $(OBJS) $(CLOBJS) core* *~ lib/*~ lib/t *.jpg
-	rm -f $(TARGET) $(CLTARGET) $(ARCHIVE).tgz
+	rm -f $(TARGET) $(CMDTARGET) $(ARCHIVE).tgz
+
+install: $(TARGET) $(CMDTARGET)
+	@-cp -p -v $(TARGET) $(CMDTARGET) $(BINDEST)
 
 dist: clean
 	@-rm -rf $(TMPDIR)/$(ARCHIVE)

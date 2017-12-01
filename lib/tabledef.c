@@ -69,7 +69,8 @@ cDbService::FieldDef cTableValueFacts::fields[] =
    { "factor",           ffInt,        4, fiFactor,        ftData },
    { "name",             ffAscii,    100, fiName,          ftData },
    { "title",            ffAscii,    100, fiTitle,         ftData },
-
+   { "usrtitle",         ffAscii,    100, fiUsrTitle,      ftData },
+   
    { "res1",             ffInt,        4, fiRes1,          ftData },
 
    { 0 }
