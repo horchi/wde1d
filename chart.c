@@ -498,7 +498,7 @@ int printActualNewStyle(FILE* fp, cDbStatement* s, long lastTime)
          const char* color = 0;
 
          if (sDb->getRow()->getValue(cTableSamples::fiText)->hasValue("Betriebsbereit"))
-            color = "green";
+            color = "#34c634";
 
          else if (sDb->getRow()->getValue(cTableSamples::fiText)->hasValue("Heizen"))
             color = "#f00";
