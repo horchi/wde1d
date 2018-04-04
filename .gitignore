@@ -1,4 +1,8 @@
 *.o
+<<<<<<< Updated upstream
+=======
+*.a
+>>>>>>> Stashed changes
 *~
 wde1d
 dbchart

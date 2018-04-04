@@ -462,9 +462,12 @@ int printActualNewStyle(FILE* fp, cDbStatement* s, long lastTime)
    sprintf(line, "Uhrzeit = %s\n", l2pTime(lastTime, "%H:%M").c_str());
    fputs(line, fp);
 
-   for (int f = s->find(); f; f = s->fetch())
+   for (int r = s->find(); r; r = s->fetch())
    {
-      const char* p;
+      const char* f = 0;
+      const char* p = 0;
+      char* token = 0;
+
       double v =  sDb->getRow()->getValue(cTableSamples::fiValue)->getFloatValue();
       const char* unit = sfDb->getRow()->getValue(cTableValueFacts::fiUnit)->getStrValue();
       const char* title = sfDb->getRow()->getValue(cTableValueFacts::fiTitle)->getStrValue();
@@ -476,11 +479,27 @@ int printActualNewStyle(FILE* fp, cDbStatement* s, long lastTime)
       if (!isEmpty(utitle))
           title = utitle;
 
-      if (!isEmpty(filter) && !(p = strcasestr(filter, title)))
+      if (!isEmpty(filter) && !(f = strcasestr(filter, title)))
          continue;
 
-      if (p && *(p-1) && *(p-1) == '*')
-         fprintf(fp, "*");
+      // get the filter token
+
+      if (f)
+      {
+         int len = strlen(f);
+
+         if (p = strchr(f, ','))
+            len = p-f;
+
+         asprintf(&token, "%.*s", len, f);
+      }
+
+      // use different title?
+
+      if (token && (p = strchr(token, ':')))
+         title = p+1;
+
+      // use proper format for each value type
 
       if (!isEmpty(text))
          fprintf(fp, "%s = %s", title, text);
@@ -491,7 +510,7 @@ int printActualNewStyle(FILE* fp, cDbStatement* s, long lastTime)
       else
          fprintf(fp, "%s = %d%s", title, (int)v, unit);
 
-      // #TODO to be configurable !!
+      // set the color  ....  #TODO to be configurable !!
 
       if (sfDb->getRow()->getValue(cTableValueFacts::fiTitle)->hasValue("Heizungsstatus"))
       {
@@ -520,6 +539,7 @@ int printActualNewStyle(FILE* fp, cDbStatement* s, long lastTime)
       }
 
       fprintf(fp, "\n");
+      free(token);
    }
 
    return done;
@@ -620,9 +640,7 @@ int main(int argc, char** argv)
 
    loglevel = 0;
 
-   if (argc == 1 || (argc > 1 && (argv[1][0] == '?' ||
-                                  (strcmp(argv[1], "-h") == 0) ||
-                                  (strcmp(argv[1], "--help") == 0))))
+   if (argc == 1 || (argc > 1 && (argv[1][0] == '?' || (strcmp(argv[1], "-h") == 0) || (strcmp(argv[1], "--help") == 0))))
    {
       showUsage(argv[0]);
       return 0;

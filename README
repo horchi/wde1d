@@ -88,7 +88,7 @@ MYSQL HINTS:
 
 -------------------------------------------------------
 -------------------------------------------------------
---                   WDE1 Client                     --
+--                   Chart Client                    --
 -------------------------------------------------------
 -------------------------------------------------------
 
@@ -99,6 +99,7 @@ It is more or less a example code.
 Requirements:
 -------------
 
+  - libjpeg and libjpeg-dev
   - libmysql >= 5.07
   - libmgl version 2.1.x
 
@@ -117,12 +118,12 @@ sudo ldconfig
 Building the client:
 --------------------
 
-make wde1-chart
+make dbchart
 
 Installing the client:
 ----------------------
 
-- sudo cp wde1-chart /usr/local/bin/
+- sudo cp dbchart /usr/local/bin/
 - sudo cp scripts/wde1-chart.sh /usr/local/bin/
 
 If you use upstart:
